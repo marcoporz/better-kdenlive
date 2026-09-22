@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 klg . <faction-frail-22@proton.me>
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 #include <QGraphicsTextItem>

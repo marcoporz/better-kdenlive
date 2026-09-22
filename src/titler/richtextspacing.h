@@ -1,4 +1,5 @@
 
+// SPDX-FileCopyrightText: 2026 klg . <faction-frail-22@proton.me>
 // SPDX-License-Identifier: MIT
 #pragma once
 #include <QCryptographicHash>
