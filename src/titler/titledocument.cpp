@@ -12,6 +12,10 @@
  ***************************************************************************/
 
 #include "titledocument.h"
+#include "richtextspacing.h"
+#include "richtextgradient.h"
+#include <QDebug>
+#include <QFontInfo>
 #include "gradientwidget.h"
 
 #include "graphicsscenerectmove.h"
@@ -230,9 +234,26 @@ QDomDocument TitleDocument::xmlItem(QGraphicsItem *item, int width, int height, 
         if (t->toPlainText().simplified().isEmpty()) {
             return {};
         }
-        // content.appendChild(doc.createTextNode(((QGraphicsTextItem*)item)->toHtml()));
+        // Keep legacy plain text first so older Kdenlive/MLT versions still
+        // have a usable fallback representation.
         content.appendChild(doc.createTextNode(t->toPlainText()));
-        font = t->font();
+
+        // Rich text: additive rich representation. Older readers ignore
+        // this child and continue reading the first plain-text node above.
+        QDomElement richText = doc.createElement(QStringLiteral("richtext"));
+        richText.setAttribute(QStringLiteral("format"), QStringLiteral("qt-html-v1"));
+        richText.appendChild(doc.createTextNode(t->toHtml()));
+        content.appendChild(richText);
+        content.appendChild(TitlerSpacingV1::save(doc, t->document())); // Rich text
+        content.appendChild(TitlerGradientV1::save(doc, t->document())); // Rich text selective gradients
+
+        // Use the first run for legacy fallback, without changing the live item.
+        QTextCursor fallback(t->document());
+        fallback.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor);
+        font = fallback.charFormat().font().resolve(t->font());
+        if (font.pixelSize() <= 0) {
+            font.setPixelSize(qMax(1, QFontInfo(font).pixelSize()));
+        }
         content.setAttribute(QStringLiteral("font"), font.family());
         content.setAttribute(QStringLiteral("font-weight"), font.weight());
         content.setAttribute(QStringLiteral("font-pixel-size"), font.pixelSize());
@@ -279,7 +300,12 @@ QDomDocument TitleDocument::xmlItem(QGraphicsItem *item, int width, int height, 
             // Font outline
             QTextCursor cursor(t->document());
             cursor.select(QTextCursor::Document);
-            QColor fontcolor = cursor.charFormat().foreground().color();
+            const QBrush firstBrush = fallback.charFormat().foreground();
+            QColor fontcolor = firstBrush.style() == Qt::SolidPattern
+                ? firstBrush.color() : t->defaultTextColor();
+            if (!fontcolor.isValid()) {
+                fontcolor = Qt::white;
+            }
             content.setAttribute(QStringLiteral("font-color"), colorToString(fontcolor));
             if (!t->data(TitleDocument::OutlineWidth).isNull()) {
                 content.setAttribute(QStringLiteral("font-outline"), QString::number(t->data(TitleDocument::OutlineWidth).toDouble()));
@@ -522,36 +548,86 @@ QGraphicsItem *TitleDocument::loadItemFromXml(const QDomNode &itemNode, const QS
             }
             font.setLetterSpacing(QFont::AbsoluteSpacing, txtProperties.namedItem(QStringLiteral("letter-spacing")).nodeValue().toInt());
             QColor col(stringToColor(txtProperties.namedItem(QStringLiteral("font-color")).nodeValue()));
-            MyTextItem *txt = new MyTextItem(itemNode.namedItem(QStringLiteral("content")).firstChild().nodeValue(), nullptr);
+
+            QDomElement contentElement = itemNode.namedItem(QStringLiteral("content")).toElement();
+            QDomElement richTextElement = contentElement.firstChildElement(QStringLiteral("richtext"));
+            const bool hasRichText = !richTextElement.isNull()
+                && richTextElement.attribute(QStringLiteral("format")) == QLatin1String("qt-html-v1")
+                && !richTextElement.text().isEmpty();
+
+            // The first child remains the legacy plain-text fallback.
+            MyTextItem *txt = new MyTextItem(contentElement.firstChild().nodeValue(), nullptr);
             txt->setFont(font);
+
+            if (hasRichText) {
+                // Rich text: restore the QTextDocument character runs before
+                // applying the legacy object-level effects below.
+                txt->setHtml(richTextElement.text());
+                if (!TitlerSpacingV1::restore(contentElement, txt->document())) {
+                    qWarning() << "Ignoring invalid title rich-text spacing metadata";
+                }
+                if (!TitlerGradientV1::restore(contentElement, txt->document())) {
+                    qWarning() << "Ignoring invalid title rich-text gradient metadata";
+                }
+                txt->document()->setDocumentMargin(0);
+                TitlerGradientV1::applyBrushes(
+                    txt->document(), int(txt->boundingRect().width()), int(txt->boundingRect().height()));
+            }
+
             txt->setTextInteractionFlags(Qt::NoTextInteraction);
+
             QTextCursor cursor(txt->document());
             cursor.select(QTextCursor::Document);
-            QTextCharFormat cformat = cursor.charFormat();
+
+            QTextCharFormat globalFormat;
+            bool hasGlobalFormat = false;
+
             if (txtProperties.namedItem(QStringLiteral("font-outline")).nodeValue().toDouble() > 0.0) {
                 txt->setData(TitleDocument::OutlineWidth, txtProperties.namedItem(QStringLiteral("font-outline")).nodeValue().toDouble());
                 txt->setData(TitleDocument::OutlineColor, stringToColor(txtProperties.namedItem(QStringLiteral("font-outline-color")).nodeValue()));
-                cformat.setTextOutline(QPen(QColor(stringToColor(txtProperties.namedItem(QStringLiteral("font-outline-color")).nodeValue())),
-                                            txtProperties.namedItem(QStringLiteral("font-outline")).nodeValue().toDouble(), Qt::SolidLine, Qt::RoundCap,
-                                            Qt::RoundJoin));
+
+                globalFormat.setTextOutline(
+                    QPen(
+                        QColor(stringToColor(txtProperties.namedItem(QStringLiteral("font-outline-color")).nodeValue())),
+                        txtProperties.namedItem(QStringLiteral("font-outline")).nodeValue().toDouble(),
+                        Qt::SolidLine,
+                        Qt::RoundCap,
+                        Qt::RoundJoin));
+                hasGlobalFormat = true;
             }
+
             if (!txtProperties.namedItem(QStringLiteral("line-spacing")).isNull()) {
                 int lineSpacing = txtProperties.namedItem(QStringLiteral("line-spacing")).nodeValue().toInt();
-                QTextBlockFormat format = cursor.blockFormat();
+                QTextBlockFormat format;
                 format.setLineHeight(lineSpacing, QTextBlockFormat::LineDistanceHeight);
-                cursor.setBlockFormat(format);
+                cursor.mergeBlockFormat(format);
                 txt->setData(TitleDocument::LineSpacing, lineSpacing);
             }
-            txt->setTextColor(col);
-            cformat.setForeground(QBrush(col));
-            cursor.setCharFormat(cformat);
+
+            if (!hasRichText) {
+                // Legacy titles still get their object-level solid colour.
+                txt->setDefaultTextColor(col);
+                globalFormat.setForeground(QBrush(col));
+                hasGlobalFormat = true;
+            }
+
             if (!txtProperties.namedItem(QStringLiteral("gradient")).isNull()) {
-                // Gradient color
+                // Gradient is still object-level for now, but no longer
+                // destroys the saved character fonts/weights/sizes.
                 QString data = txtProperties.namedItem(QStringLiteral("gradient")).nodeValue();
                 txt->setData(TitleDocument::Gradient, data);
-                QLinearGradient gr = GradientWidget::gradientFromString(data, int(txt->boundingRect().width()), int(txt->boundingRect().height()));
-                cformat.setForeground(QBrush(gr));
-                cursor.setCharFormat(cformat);
+
+                QLinearGradient gr = GradientWidget::gradientFromString(
+                    data,
+                    int(txt->boundingRect().width()),
+                    int(txt->boundingRect().height()));
+
+                globalFormat.setForeground(QBrush(gr));
+                hasGlobalFormat = true;
+            }
+
+            if (hasGlobalFormat) {
+                cursor.mergeCharFormat(globalFormat);
             }
 
             if (!txtProperties.namedItem(QStringLiteral("alignment")).isNull()) {

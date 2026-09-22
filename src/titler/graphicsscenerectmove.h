@@ -49,12 +49,19 @@ public:
     void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *evt) override;
     void setTextColor(const QColor &col);
 
+Q_SIGNALS:
+    // Rich text: caret/selection formatting changed.
+    void cursorFormatChanged(MyTextItem *item);
+
 protected:
     QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *w) override;
     bool sceneEvent(QEvent *event) override;
+    void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
+    void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override;
 
 private:
+    bool m_richTextLayoutBusy{false}; // Rich text layout recursion guard
     Qt::Alignment m_alignment;
     QPoint m_shadowOffset;
     int m_shadowBlur;
