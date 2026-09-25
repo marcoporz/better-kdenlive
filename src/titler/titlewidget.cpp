@@ -55,6 +55,7 @@
 #include <QTextFragment>
 #include "titler/richtextformat.h"
 #include "titler/richtextgradient.h"
+#include "titler/richtextoutline.h"
 #include <QTimer>
 #include <QToolBar>
 
@@ -1290,16 +1291,13 @@ void TitleWidget::slotNewText(MyTextItem *tt)
     QTextCharFormat cformat = cur.charFormat();
     double outlineWidth = textOutline->value();
 
-    tt->setData(TitleDocument::OutlineWidth, outlineWidth);
-    tt->setData(TitleDocument::OutlineColor, outlineColor);
-    if (outlineWidth > 0.0) {
-        cformat.setTextOutline(QPen(outlineColor, outlineWidth));
-    }
+    tt->setOutline(outlineWidth, outlineColor);
+    cformat.setTextOutline(QPen(Qt::NoPen));
     tt->updateShadow(shadowBox->isChecked(), blur_radius->value(), shadowX->value(), shadowY->value(), shadowColor->color());
     if (gradient_color->isChecked()) {
         QString gradientData = gradients_combo->currentData().toString();
         tt->setData(TitleDocument::Gradient, gradientData);
-        QLinearGradient gr = GradientWidget::gradientFromString(gradientData, int(tt->boundingRect().width()), int(tt->boundingRect().height()));
+        QLinearGradient gr = GradientWidget::gradientFromString(gradientData, int(tt->baseBoundingRect().width()), int(tt->baseBoundingRect().height()));
         cformat.setForeground(QBrush(gr));
     } else {
         cformat.setForeground(QBrush(color));
@@ -2108,6 +2106,22 @@ void TitleWidget::updateTextCursorTools(MyTextItem *item)
     buttonUnder->setToolTip(mixedTip);
     fontColorButton->setToolTip(mixedTip);
     letter_spacing->setToolTip(mixedTip);
+
+    QTextCursor outlineCursor = item->textCursor();
+    if (!outlineCursor.hasSelection() && !item->textInteractionFlags().testFlag(Qt::TextEditable)) {
+        outlineCursor.select(QTextCursor::Document);
+    }
+    const auto outline = TitlerOutline::selectionState(outlineCursor, item->defaultOutline());
+    const QSignalBlocker blockOutlineWidth(textOutline);
+    const QSignalBlocker blockOutlineColor(textOutlineColor);
+    textOutline->setValue(qRound(TitlerOutline::width(outline.pen)));
+    textOutlineColor->setColor(outline.pen.color());
+    textOutline->setToolTip(outline.mixedWidth
+        ? i18n("Mixed outline widths: showing the first selected character. Changing the width applies only that property to the selection.")
+        : i18n("Outline width. Applies to selected text, or to the whole object outside text editing."));
+    textOutlineColor->setToolTip(outline.mixedColor
+        ? i18n("Mixed outline colors: showing the first selected character. Changing the color preserves each character's outline width.")
+        : i18n("Outline color. Applies to selected text, or to the whole object outside text editing."));
 }
 
 void TitleWidget::slotUpdateText()
@@ -2163,23 +2177,16 @@ void TitleWidget::slotUpdateText()
             item->setData(TitleDocument::LineSpacing, line_spacing->value());
             cursor.mergeBlockFormat(block);
         } else if (outline) {
-            // Outline remains object-level until its rich-run persistence and
-            // renderer are converted in the same way as gradients.
-            QTextCursor cursor(item->document());
-            cursor.select(QTextCursor::Document);
-            QTextCharFormat effect;
-            const double width = textOutline->value();
-            const QColor color = textOutlineColor->color();
-            item->setData(TitleDocument::OutlineWidth, width);
-            item->setData(TitleDocument::OutlineColor, color);
-            effect.setTextOutline(width > 0 ?
-                QPen(color, width, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin) : QPen(Qt::NoPen));
-            cursor.mergeCharFormat(effect);
+            if (control == textOutline) {
+                item->applyOutlineWidth(textOutline->value());
+            } else {
+                item->applyOutlineColor(textOutlineColor->color());
+            }
         } else if (gradient || solid) {
             const QTextCursor active = item->textCursor();
             const bool objectMode = !active.hasSelection()
                 && !item->textInteractionFlags().testFlag(Qt::TextEditable);
-            const auto rect = item->boundingRect();
+            const auto rect = item->baseBoundingRect();
 
             if (objectMode) {
                 QTextCursor cursor(item->document());
@@ -3355,24 +3362,6 @@ void TitleWidget::prepareTools(QGraphicsItem *referenceItem)
 
                 updateTextCursorTools(i);
 
-                QColor color;
-
-                if (!i->data(TitleDocument::OutlineWidth).isNull()) {
-                    textOutline->blockSignals(true);
-                    textOutline->setValue(int(i->data(TitleDocument::OutlineWidth).toDouble()));
-                    textOutline->blockSignals(false);
-                } else {
-                    textOutline->blockSignals(true);
-                    textOutline->setValue(0);
-                    textOutline->blockSignals(false);
-                }
-                if (!i->data(TitleDocument::OutlineColor).isNull()) {
-                    textOutlineColor->blockSignals(true);
-                    QVariant variant = i->data(TitleDocument::OutlineColor);
-                    color = variant.value<QColor>();
-                    textOutlineColor->setColor(color);
-                    textOutlineColor->blockSignals(false);
-                }
                 const QString legacyGradient = i->data(TitleDocument::Gradient).toString();
                 if (!legacyGradient.isEmpty()) {
                     gradients_combo->blockSignals(true);

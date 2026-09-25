@@ -11,22 +11,25 @@ SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
 #include <QGraphicsScene>
 #include <QGraphicsSvgItem>
 #include <QGraphicsTextItem>
+#include <QPen>
 
 class MyQGraphicsEffect : public QGraphicsEffect
 {
 public:
     explicit MyQGraphicsEffect(QObject *parent = nullptr);
     void setOffset(int xOffset, int yOffset, int blur);
-    void setShadow(const QImage &image);
+    void setShadow(const QImage &image, const QPointF &origin = QPointF());
 
 protected:
     void draw(QPainter *painter) override;
+    QRectF boundingRectFor(const QRectF &sourceRect) const override;
 
 private:
     int m_xOffset{0};
     int m_yOffset{0};
     int m_blur{0};
     QImage m_shadow;
+    QPointF m_shadowOrigin;
 };
 
 class MyTextItem : public QGraphicsTextItem
@@ -48,6 +51,10 @@ public:
     void loadTW(const QStringList &info);
     void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *evt) override;
     void setTextColor(const QColor &col);
+    void setOutline(qreal width, const QColor &color);
+    void applyOutlineWidth(qreal width);
+    void applyOutlineColor(const QColor &color);
+    QPen defaultOutline() const;
 
 Q_SIGNALS:
     // Rich text: caret/selection formatting changed.
@@ -64,9 +71,11 @@ private:
     bool m_richTextLayoutBusy{false}; // Rich text layout recursion guard
     Qt::Alignment m_alignment;
     QPoint m_shadowOffset;
-    int m_shadowBlur;
+    int m_shadowBlur{0};
     QColor m_shadowColor;
-    QPainterPath m_path;
+    QPen m_outlinePen{Qt::NoPen};
+    qreal m_outlineMargin{0};
+    QRectF m_inkBounds;
     MyQGraphicsEffect *m_shadowEffect;
     void updateShadow();
     void blurShadow(QImage &image, int radius);

@@ -12,6 +12,7 @@
 #include <QTextDocument>
 #include <QTextFormat>
 #include <QTextFragment>
+#include <QTextLayout>
 #include <QVector>
 #include <QtMath>
 
@@ -121,6 +122,65 @@ inline bool restore(const QDomElement &content, QTextDocument *text)
     }
     cursor.endEditBlock();
     return true;
+}
+
+// Rebuild presentation brushes without adding document-format edits to Undo.
+inline void applyLayoutBrushes(QTextDocument *text, int width, int height, const QString &legacy = QString())
+{
+    constexpr int layoutBrushProperty = QTextFormat::UserProperty + 4;
+    for (QTextBlock block = text->begin(); block.isValid(); block = block.next()) {
+        QTextLayout *layout = block.layout();
+        if (!layout) {
+            continue;
+        }
+        const auto previous = layout->formats();
+        QList<QTextLayout::FormatRange> formats;
+        for (const auto &range : previous) {
+            if (!range.format.hasProperty(layoutBrushProperty)) {
+                formats.append(range);
+            }
+        }
+        const int preedit = layout->preeditAreaPosition();
+        const int preeditLength = int(layout->preeditAreaText().size());
+        const auto append = [&](int start, int length, const QBrush &brush) {
+            const auto part = [&](int position, int count) {
+                if (count <= 0) {
+                    return;
+                }
+                QTextLayout::FormatRange range;
+                range.start = position;
+                range.length = count;
+                range.format.setForeground(brush);
+                range.format.setProperty(layoutBrushProperty, true);
+                formats.append(range);
+            };
+            // Leave the input method's preedit formats separate from document ranges.
+            if (preeditLength == 0 || preedit < 0 || start + length <= preedit) {
+                part(start, length);
+            } else if (start >= preedit) {
+                part(start + preeditLength, length);
+            } else {
+                part(start, preedit - start);
+                part(preedit + preeditLength, start + length - preedit);
+            }
+        };
+        for (auto it = block.begin(); !it.atEnd(); ++it) {
+            const QTextFragment fragment = it.fragment();
+            if (!fragment.isValid()) {
+                continue;
+            }
+            const QString recipe = legacy.isEmpty()
+                ? fragment.charFormat().property(Property).toString() : legacy;
+            if (!recipe.isEmpty()) {
+                append(fragment.position() - block.position(), fragment.length(),
+                       QBrush(gradientFromString(recipe, width, height)));
+            }
+        }
+        if (formats != previous) {
+            layout->setFormats(formats);
+            text->markContentsDirty(block.position(), block.length());
+        }
+    }
 }
 
 inline void applyBrushes(QTextDocument *text, int width, int height)
