@@ -1302,9 +1302,9 @@ void TitleWidget::slotNewText(MyTextItem *tt)
     } else {
         cformat.setForeground(QBrush(color));
     }
+    cur.select(QTextCursor::Document);
     cur.setCharFormat(cformat);
     cur.setBlockFormat(format);
-    cur.select(QTextCursor::Document);
     tt->setTextCursor(cur);
     tt->setZValue(m_count++);
     setCurrentItem(tt);
