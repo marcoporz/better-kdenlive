@@ -3140,6 +3140,9 @@ std::pair<const QString, bool> KdenliveDoc::ensureRelativePath(QString currentPa
         } else if (!m_url.isEmpty()) {
             // Return absolute path
             QDir previousRoot(m_url.adjusted(QUrl::RemoveFilename).toLocalFile());
+            if (QDir::cleanPath(updatedRoot) == previousRoot.absolutePath()) {
+                return {previousRoot.absoluteFilePath(currentPath), false};
+            }
             return {previousRoot.absoluteFilePath(currentPath), true};
         }
         return {QDir::cleanPath(currentPath), false};
