@@ -29,7 +29,7 @@ public:
         QString newFilePath;
         /** @brief id of the clip that includes the missing item */
         QString clipId;
-        /** @brief id of other clips that includes the missing item - used for title images - so that only one occurence appears in the dialog. */
+        /** @brief id of other clips that includes the missing item - used for title images - so that only one occurrence appears in the dialog. */
         QStringList relatedIds;
         QString hash;
         QString fileSize;
