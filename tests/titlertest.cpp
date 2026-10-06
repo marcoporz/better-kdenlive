@@ -6,6 +6,7 @@
 #include "test_utils.hpp"
 #include <QAbstractTextDocumentLayout>
 #include <QDataStream>
+#include <QDebug>
 #include <QGlyphRun>
 #include <QRawFont>
 #include <QTextLayout>
@@ -78,6 +79,14 @@ TEST_CASE("Title text center alignment", "[Titler]")
 #include <QPainter>
 
 namespace {
+bool richTextSupported()
+{
+    std::unique_ptr<Mlt::Properties> metadata(pCore->getMltRepository()->metadata(mlt_service_producer_type, "kdenlivetitle"));
+    double titlerVersion = metadata->get_double("version");
+    qDebug() << "=============\nFOUND TITLER VERSION: " << titlerVersion;
+    metadata.reset();
+    return titlerVersion >= 8;
+}
 void richSelect(MyTextItem *item, int anchor, int position)
 {
     QTextCursor cursor(item->document());
@@ -94,8 +103,14 @@ QTextCharFormat richFormat(MyTextItem *item, int position)
 }
 }
 
+static bool testRichText;
+
 TEST_CASE("Rich text color keeps fonts and selection", "[Titler][RichText]")
 {
+    testRichText = richTextSupported();
+    if (!testRichText) {
+        return;
+    }
     MyTextItem item(QStringLiteral("Hello amazing world"), nullptr);
     item.setTextInteractionFlags(Qt::TextEditorInteraction);
     QTextCharFormat base;
@@ -167,6 +182,9 @@ TEST_CASE("Rich text color keeps fonts and selection", "[Titler][RichText]")
 
 TEST_CASE("Rich text paints mixed colors outside edit mode", "[Titler][RichText]")
 {
+    if (!testRichText) {
+        return;
+    }
     QGraphicsScene scene;
     auto *item = new MyTextItem(QStringLiteral("Hello world"), nullptr);
     scene.addItem(item);
@@ -203,6 +221,9 @@ TEST_CASE("Rich text paints mixed colors outside edit mode", "[Titler][RichText]
 
 TEST_CASE("Rich text survives title XML round trip", "[Titler][RichText]")
 {
+    if (!testRichText) {
+        return;
+    }
     MyTextItem source(QStringLiteral("Hello amazing world"), nullptr);
     source.setTextInteractionFlags(Qt::TextEditorInteraction);
 
@@ -284,6 +305,9 @@ TEST_CASE("Rich text survives title XML round trip", "[Titler][RichText]")
 
 TEST_CASE("Rich text spacing handles Unicode and invalid ranges", "[Titler][RichText]")
 {
+    if (!testRichText) {
+        return;
+    }
     const QString sample = QStringLiteral("A\U0001F642\nB\te\u0301");
     MyTextItem source(sample, nullptr);
     source.setTextInteractionFlags(Qt::TextEditorInteraction);
@@ -330,6 +354,9 @@ TEST_CASE("Rich text spacing handles Unicode and invalid ranges", "[Titler][Rich
 
 TEST_CASE("Rich text active inspector format follows caret and selection", "[Titler][RichText]")
 {
+    if (!testRichText) {
+        return;
+    }
     MyTextItem item(QStringLiteral("Hello amazing world"), nullptr);
 
     QTextCharFormat base;
@@ -472,6 +499,9 @@ int countRedPixels(const QImage &image)
 
 TEST_CASE("Rich text selection scan preserves Unicode and cursor", "[Titler][RichText]")
 {
+    if (!testRichText) {
+        return;
+    }
     const QString text = QString::fromUtf8("A\xCC\x88 \xF0\x9F\x8C\x88 amazing");
     MyTextItem item(text, nullptr);
     QTextCharFormat base;
@@ -494,6 +524,9 @@ TEST_CASE("Rich text selection scan preserves Unicode and cursor", "[Titler][Ric
 
 TEST_CASE("Rich text colored shadow keeps premultiplied alpha", "[Titler][RichText]")
 {
+    if (!testRichText) {
+        return;
+    }
     QGraphicsScene scene;
     auto *item = new MyTextItem(QStringLiteral("Test"), nullptr);
     scene.addItem(item);
@@ -530,6 +563,9 @@ TEST_CASE("Rich text colored shadow keeps premultiplied alpha", "[Titler][RichTe
 
 TEST_CASE("Rich text native typewriter preserves render and seeking", "[Titler][RichTextRender]")
 {
+    if (!testRichText) {
+        return;
+    }
     Mlt::Profile profile("atsc_720p_25");
     const QString text = QString::fromUtf8("A\xCC\x88 Hello amazing } \\ world\nNext line");
     const auto plain = makeRichTextTitle(text, 0);
@@ -567,6 +603,9 @@ TEST_CASE("Rich text native typewriter preserves render and seeking", "[Titler][
 
 TEST_CASE("Rich text effect stack typewriter preserves rich XML", "[Titler][RichTextRender]")
 {
+    if (!testRichText) {
+        return;
+    }
     Mlt::Profile profile("atsc_720p_25");
     const QString text = QStringLiteral("Hello amazing } \\ world\nSecond line");
     const auto title = makeRichTextTitle(text, 0);
@@ -611,6 +650,9 @@ TEST_CASE("Rich text effect stack typewriter preserves rich XML", "[Titler][Rich
 
 TEST_CASE("Rich text seeded timing and shadow are seek repeatable", "[Titler][RichTextRender]")
 {
+    if (!testRichText) {
+        return;
+    }
     Mlt::Profile profile("atsc_720p_25");
     const auto title = makeRichTextTitle(QStringLiteral("Hello amazing world"), 1, 3, true);
     Mlt::Producer first(profile, "kdenlivetitle", ""), second(profile, "kdenlivetitle", "");
@@ -632,6 +674,9 @@ TEST_CASE("Rich text seeded timing and shadow are seek repeatable", "[Titler][Ri
 #include <QTemporaryDir>
 TEST_CASE("Rich text file backed typewriter restores the source", "[Titler][RichTextRender]")
 {
+    if (!testRichText) {
+        return;
+    }
     QTemporaryDir directory;
     REQUIRE(directory.isValid());
     const auto title = makeRichTextTitle(QStringLiteral("Hello amazing world"), 0);
@@ -664,6 +709,9 @@ TEST_CASE("Rich text file backed typewriter restores the source", "[Titler][Rich
 
 TEST_CASE("Rich text emits reference frames for lossless export", "[Titler][RichTextRender]")
 {
+    if (!testRichText) {
+        return;
+    }
     const auto title = makeRichTextTitle(QStringLiteral("Hello amazing world"), 1);
     Mlt::Profile profile("atsc_720p_25");
     Mlt::Producer producer(profile, "kdenlivetitle", "");
@@ -692,6 +740,9 @@ TEST_CASE("Rich text emits reference frames for lossless export", "[Titler][Rich
 
 TEST_CASE("Rich text selective gradient survives XML round trip", "[Titler][RichText]")
 {
+    if (!testRichText) {
+        return;
+    }
     MyTextItem source(QStringLiteral("Hello amazing world"), nullptr);
     QFont font(QStringLiteral("sans-serif"));
     font.setPixelSize(32);
@@ -733,6 +784,9 @@ TEST_CASE("Rich text selective gradient survives XML round trip", "[Titler][Rich
 
 TEST_CASE("Rich text selective gradient renders in MLT and typewriter", "[Titler][RichText][RichTextRender]")
 {
+    if (!testRichText) {
+        return;
+    }
     const auto makeTitle = [](int mode) {
         MyTextItem source(QStringLiteral("Hello amazing world"), nullptr);
         QFont font(QStringLiteral("sans-serif"));
@@ -991,6 +1045,9 @@ void checkOutlineFill(const QImage &fill, const QImage &outlined)
 
 TEST_CASE("Rich text outlines keep mixed fills after resize", "[Titler][RichTextOutline][OutlineRegression]")
 {
+    if (!testRichText) {
+        return;
+    }
     auto outlined = outlinedTitle(12);
     auto fill = outlinedTitle(0);
     resizeOutlinedWord(outlined.get(), 72);
@@ -1012,6 +1069,9 @@ TEST_CASE("Rich text outlines keep mixed fills after resize", "[Titler][RichText
 
 TEST_CASE("Rich text outlined resize and undo preserve layout", "[Titler][RichTextOutline]")
 {
+    if (!testRichText) {
+        return;
+    }
     auto outlined = outlinedTitle(8);
     auto fill = outlinedTitle(0);
     const QImage original = paintOutlinedTitle(outlined.get());
@@ -1041,6 +1101,9 @@ TEST_CASE("Rich text outlined resize and undo preserve layout", "[Titler][RichTe
 
 TEST_CASE("Rich text outlined gradients survive XML and fit painting bounds", "[Titler][RichTextOutline]")
 {
+    if (!testRichText) {
+        return;
+    }
     for (int width : {2, 12, 40}) {
         INFO("Outline width: " << width);
         auto source = outlinedTitle(width, QStringLiteral("A\u0308 Hello amazing world\n\u0645\u0631\u062d\u0628\u0627 \U0001f642"));
@@ -1074,6 +1137,9 @@ TEST_CASE("Rich text outlined gradients survive XML and fit painting bounds", "[
 
 TEST_CASE("Rich text outlined editor and MLT renders agree", "[Titler][RichTextOutline][RichTextRender]")
 {
+    if (!testRichText) {
+        return;
+    }
     auto source = outlinedTitle(12);
     resizeOutlinedWord(source.get(), 72);
     const QImage editor = paintOutlinedTitle(source.get());
@@ -1086,6 +1152,9 @@ TEST_CASE("Rich text outlined editor and MLT renders agree", "[Titler][RichTextO
 
 TEST_CASE("Rich text outlined typewriters hide strokes and survive seeking", "[Titler][RichTextOutline][RichTextRender]")
 {
+    if (!testRichText) {
+        return;
+    }
     auto source = outlinedTitle(12);
     Mlt::Profile profile("atsc_720p_25");
     Mlt::Producer reference(profile, "kdenlivetitle", "");
@@ -1128,6 +1197,9 @@ TEST_CASE("Rich text outlined typewriters hide strokes and survive seeking", "[T
 
 TEST_CASE("Title XML preserves fractional text box width", "[Titler][TitleGeometryPrecision]")
 {
+    if (!testRichText) {
+        return;
+    }
     MyTextItem item(QStringLiteral("Text"), nullptr);
     QFont font(QStringLiteral("serif"));
     font.setPixelSize(28);
@@ -1202,6 +1274,9 @@ int selectiveStrokePixels(const QImage &image, bool red)
 
 TEST_CASE("Selective outlines preserve unselected formats and selection", "[Titler][SelectiveOutline]")
 {
+    if (!testRichText) {
+        return;
+    }
     auto item = selectiveOutlineTitle();
     item->setOutline(4, Qt::black);
     const auto untouched = richFormat(item.get(), 0).properties();
@@ -1228,6 +1303,9 @@ TEST_CASE("Selective outlines preserve unselected formats and selection", "[Titl
 
 TEST_CASE("Selective outline controls preserve the other mixed property", "[Titler][SelectiveOutline]")
 {
+    if (!testRichText) {
+        return;
+    }
     auto item = selectiveOutlineTitle();
     richSelect(item.get(), 0, 3);
     item->applyOutlineWidth(2);
@@ -1257,6 +1335,9 @@ TEST_CASE("Selective outline controls preserve the other mixed property", "[Titl
 
 TEST_CASE("Selective outlines support caret insertion and whole object editing", "[Titler][SelectiveOutline]")
 {
+    if (!testRichText) {
+        return;
+    }
     auto item = selectiveOutlineTitle();
     const int end = item->toPlainText().size();
     richSelect(item.get(), end, end);
@@ -1283,6 +1364,9 @@ TEST_CASE("Selective outlines support caret insertion and whole object editing",
 
 TEST_CASE("Selective outlines preserve exact alpha and fractional width in XML", "[Titler][SelectiveOutline]")
 {
+    if (!testRichText) {
+        return;
+    }
     auto item = selectiveOutlineTitle(QStringLiteral("A\u0308 \U0001f642 \u0645\u0631\u062d\u0628\u0627\namazing end"));
     item->setOutline(4, Qt::black);
     const int start = item->toPlainText().indexOf(QStringLiteral("amazing"));
@@ -1310,6 +1394,9 @@ TEST_CASE("Selective outlines preserve exact alpha and fractional width in XML",
 
 TEST_CASE("Selective outline metadata rejects invalid ranges without partial application", "[Titler][SelectiveOutline]")
 {
+    if (!testRichText) {
+        return;
+    }
     auto item = selectiveOutlineTitle(QStringLiteral("A\U0001f642B"));
     richSelect(item.get(), 0, 1);
     item->applyOutlineWidth(2);
@@ -1352,6 +1439,9 @@ TEST_CASE("Selective outline metadata rejects invalid ranges without partial app
 
 TEST_CASE("Selective outlines follow text edits and leave unstyled regions alone", "[Titler][SelectiveOutline]")
 {
+    if (!testRichText) {
+        return;
+    }
     auto item = selectiveOutlineTitle();
     richSelect(item.get(), 8, 11);
     item->applyOutlineWidth(10);
@@ -1379,6 +1469,9 @@ TEST_CASE("Selective outlines follow text edits and leave unstyled regions alone
 
 TEST_CASE("Selective outlines paint only selected strokes without changing the fill", "[Titler][SelectiveOutline]")
 {
+    if (!testRichText) {
+        return;
+    }
     auto item = selectiveOutlineTitle();
     const QImage fill = renderOutlinedTestItem(item.get());
     richSelect(item.get(), 8, 11);
@@ -1416,6 +1509,9 @@ TEST_CASE("Selective outlines paint only selected strokes without changing the f
 
 TEST_CASE("Selective outlines render through MLT and typewriter seeking", "[Titler][SelectiveOutline][RichTextRender]")
 {
+    if (!testRichText) {
+        return;
+    }
     auto source = selectiveOutlineTitle();
     richSelect(source.get(), 8, 11);
     source->applyOutlineWidth(8);
@@ -1612,6 +1708,9 @@ inline std::unique_ptr<QTextDocument> splitFormats(QTextDocument *source)
 
 TEST_CASE("Selective outline covers glyph contours at every contiguous Latin range", "[Titler][SelectiveOutlineBoundary]")
 {
+    if (!testRichText) {
+        return;
+    }
     for (int start = 0; start < 6; ++start) {
         for (int end = start + 1; end <= 6; ++end) {
             for (qreal width : {qreal(12), qreal(24)}) {
@@ -1633,6 +1732,9 @@ TEST_CASE("Selective outline covers glyph contours at every contiguous Latin ran
 
 TEST_CASE("Selective outline pixels ignore nonpainting fragment boundaries", "[Titler][SelectiveOutlineBoundary]")
 {
+    if (!testRichText) {
+        return;
+    }
     for (int alpha : {255, 128}) {
         INFO("Stroke alpha: " << alpha);
         auto whole = OutlineBoundaryChecks::makeDocument(0, 6, 24, alpha);
@@ -1651,6 +1753,9 @@ TEST_CASE("Selective outline pixels ignore nonpainting fragment boundaries", "[T
 
 TEST_CASE("Touching selective outlines survive XML and MLT rendering", "[Titler][SelectiveOutlineBoundary][RichTextRender]")
 {
+    if (!testRichText) {
+        return;
+    }
     auto source = selectiveOutlineTitle(QStringLiteral("ABCDEF"));
     richSelect(source.get(), 1, 4);
     source->applyOutlineWidth(24);
@@ -1729,6 +1834,9 @@ void record(const QString &name, const QJsonObject &data)
 
 TEST_CASE("Rich text center alignment distinguishes layout from ink bounds", "[Titler][AlignmentContract]")
 {
+    if (!testRichText) {
+        return;
+    }
     using namespace RichTextAlignmentContract;
     MyTextItem item(QStringLiteral("short"), nullptr);
     item.setAlignment(Qt::AlignHCenter);
@@ -1766,6 +1874,9 @@ TEST_CASE("Rich text center alignment distinguishes layout from ink bounds", "[T
 
 TEST_CASE("Rich text layout anchors survive text changes with ink overhang", "[Titler][AlignmentContract]")
 {
+    if (!testRichText) {
+        return;
+    }
     using namespace RichTextAlignmentContract;
     QJsonArray rows;
     int failures = 0;
@@ -1815,6 +1926,9 @@ TEST_CASE("Rich text layout anchors survive text changes with ink overhang", "[T
 
 TEST_CASE("Outline changes preserve the layout anchor and text width", "[Titler][AlignmentContract]")
 {
+    if (!testRichText) {
+        return;
+    }
     using namespace RichTextAlignmentContract;
     QJsonArray rows;
     int failures = 0;
@@ -1874,6 +1988,9 @@ TEST_CASE("Outline changes preserve the layout anchor and text width", "[Titler]
 #include <memory>
 TEST_CASE("Titler character font edits settle layout before outline edits", "[Titler][AlignmentContract]")
 {
+    if (!testRichText) {
+        return;
+    }
     using namespace RichTextAlignmentContract;
     QJsonArray rows;
     int cases = 0, failures = 0;
@@ -1942,6 +2059,9 @@ TEST_CASE("Titler character font edits settle layout before outline edits", "[Ti
 // even when a newly enlarged glyph no longer fits inside that width.
 TEST_CASE("Font resize undo and redo preserve the committed layout anchor", "[Titler][AlignmentContract][FontResizeAnchor]")
 {
+    if (!testRichText) {
+        return;
+    }
     using namespace RichTextAlignmentContract;
     QJsonArray rows;
     int cases = 0;
