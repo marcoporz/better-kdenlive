@@ -296,9 +296,9 @@ bool DocumentChecker::hasErrorInProject()
             }
 
             // Get last save path for recovery
-            m_lastSavePath = QDir::cleanPath(Xml::getXmlProperty(mainBinPlaylist, QStringLiteral("kdenlive:docproperties.lastsavefolder"))) + QLatin1Char('/');
-            if (!m_lastSavePath.isEmpty() && !QFileInfo(m_lastSavePath).exists()) {
-                m_lastSavePath.clear();
+            m_lastSavePath = QDir::cleanPath(Xml::getXmlProperty(mainBinPlaylist, QStringLiteral("kdenlive:docproperties.lastsavefolder")));
+            if (!m_lastSavePath.isEmpty() && !m_lastSavePath.endsWith(QLatin1Char('/'))) {
+                m_lastSavePath.append(QLatin1Char('/'));
             }
 
             // get bin ids
@@ -330,7 +330,7 @@ bool DocumentChecker::hasErrorInProject()
     renamedEffects.insert(QStringLiteral("frei0r.alphagrad"), QStringLiteral("frei0r.alpha0ps_alpha0grad"));
 
     m_safeImages.clear();
-    m_safeFonts.clear();
+    m_processedFonts.clear();
     QStringList remoteResources;
 
     const int taskCount = documentProducers.count() + documentChains.count() + documentTractors.count();
@@ -695,12 +695,21 @@ const QString DocumentChecker::relocateResource(QString sourceResource)
         return QString();
     }
 
-    if (!m_lastSavePath.isEmpty() && sourceResource.startsWith(m_root)) {
-        sourceResource.replace(m_root, m_lastSavePath);
-        if (QFileInfo::exists(sourceResource)) {
-            return sourceResource;
+    if (!m_lastSavePath.isEmpty()) {
+        if (sourceResource.startsWith(m_root)) {
+            sourceResource.replace(m_root, m_lastSavePath);
+            if (QFileInfo::exists(sourceResource)) {
+                return sourceResource;
+            }
+            return QString();
         }
-        return QString();
+        if (sourceResource.startsWith(m_lastSavePath)) {
+            sourceResource.replace(m_lastSavePath, m_root);
+            if (QFileInfo::exists(sourceResource)) {
+                return sourceResource;
+            }
+            return QString();
+        }
     }
 
     // Check if we have a common root, if file has a common ancestor in its path
@@ -878,6 +887,14 @@ void DocumentChecker::checkMissingImagesAndFonts(const QStringList &images, cons
             continue;
         }
         if (!QFile::exists(img)) {
+            int ix = itemIndexFromResource(MissingType::TitleImage, img);
+            if (ix > -1) {
+                // Item already exists
+                QStringList affectedClips = m_items.at(ix).relatedIds;
+                affectedClips << id;
+                m_items[ix].relatedIds = affectedClips;
+                continue;
+            }
             DocumentResource item;
             item.type = MissingType::TitleImage;
             item.status = MissingStatus::Missing;
@@ -895,7 +912,7 @@ void DocumentChecker::checkMissingImagesAndFonts(const QStringList &images, cons
         }
     }
     for (const QString &fontelement : fonts) {
-        if (m_safeFonts.contains(fontelement) || itemsContain(MissingType::TitleFont, fontelement)) {
+        if (m_processedFonts.contains(fontelement)) {
             continue;
         }
         QFont f(fontelement);
@@ -906,9 +923,8 @@ void DocumentChecker::checkMissingImagesAndFonts(const QStringList &images, cons
             item.newFilePath = QFontInfo(f).family();
             item.status = MissingStatus::Placeholder;
             m_items.push_back(item);
-        } else {
-            m_safeFonts.append(fontelement);
         }
+        m_processedFonts.append(fontelement);
     }
 }
 
@@ -1876,8 +1892,8 @@ void DocumentChecker::fixMissingItem(const DocumentChecker::DocumentResource &re
         // edit images embedded in titles
         for (int i = 0; i < producers.count(); ++i) {
             e = producers.item(i).toElement();
-            QString parentId = getKdenliveClipId(e);
-            if (parentId == resource.clipId) {
+            const QString parentId = getKdenliveClipId(e);
+            if (parentId == resource.clipId || resource.relatedIds.contains(parentId)) {
                 fixTitleImage(e, resource.originalFilePath, resource.newFilePath);
             }
         }
@@ -2082,6 +2098,20 @@ bool DocumentChecker::itemsContain(MissingType type, const QString &path, Missin
         }
     }
     return false;
+}
+
+int DocumentChecker::itemIndexFromResource(MissingType type, const QString &path)
+{
+    for (std::size_t i = 0; i < m_items.size(); i++) {
+        auto item = m_items.at(i);
+        if (type != item.type) {
+            continue;
+        }
+        if (item.originalFilePath == path) {
+            return i;
+        }
+    }
+    return -1;
 }
 
 int DocumentChecker::itemIndexByClipId(const QString &clipId)
