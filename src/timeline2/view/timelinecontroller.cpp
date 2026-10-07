@@ -6490,7 +6490,11 @@ void TimelineController::applyClipEffectsToTracksBelow()
     const int start = m_model->getClipPosition(clipId);
     const int end = start + m_model->getClipPlaytime(clipId) - 1;
     const int trackPos = m_model->getTrackPosition(trackId);
-    const QString ownerTag = QStringLiteral("%1:%2").arg(QCoreApplication::applicationPid()).arg(clipId);
+    const QString ownerTag = m_model->adjustmentLayerTag(clipId, true);
+    if (ownerTag.isEmpty()) {
+        pCore->displayMessage(i18n("Cannot tag this clip"), ErrorMessage);
+        return;
+    }
     Fun undo = []() { return true; };
     Fun redo = []() { return true; };
     // Replace any previous application of this clip

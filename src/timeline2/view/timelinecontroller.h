@@ -512,6 +512,8 @@ public:
     Q_INVOKABLE void switchEnableState(std::unordered_set<int> selection = {});
     Q_INVOKABLE int addCompositionToClip(const QString &assetId, int clipId = -1, int offset = -1);
     Q_INVOKABLE void addEffectToClip(const QString &assetId, int clipId = -1);
+    /** @brief Copy the effects of the selected clip as zoned track effects on all video tracks below (adjustment layer prototype) */
+    Q_INVOKABLE void applyClipEffectsToTracksBelow();
     Q_INVOKABLE void setEffectsEnabled(int clipId, bool enabled);
 
     Q_INVOKABLE void requestClipCut(int clipId, int position);

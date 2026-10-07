@@ -223,6 +223,8 @@ public:
     /** @brief Returns the id of the track containing clip (-1 if it is not inserted)
        @param clipId Id of the clip to test */
     Q_INVOKABLE int getClipTrackId(int clipId) const;
+    /** @brief Stable id linking an adjustment layer clip to the effects it applied on tracks. Created on demand if requested. */
+    QString adjustmentLayerTag(int clipId, bool create);
 
     /** @brief Returns the row of the effect if the clip has it in its effectstack, -1 otherwise */
     int clipAssetRow(int cid, const QString &assetId, int eid = -1) const;

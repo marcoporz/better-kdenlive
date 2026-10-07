@@ -371,6 +371,14 @@ void TimelineTabs::buildClipMenu()
     m_timelineClipMenu->addAction(coll->action(QStringLiteral("clip_split")));
     m_timelineClipMenu->addAction(coll->action(QStringLiteral("clip_switch")));
     m_timelineClipMenu->addAction(coll->action(QStringLiteral("delete_timeline_clip")));
+    {
+        QAction *adjustAction = m_timelineClipMenu->addAction(QIcon::fromTheme(QStringLiteral("adjustlevels")), i18n("Apply Effects to Tracks Below"));
+        connect(adjustAction, &QAction::triggered, []() {
+            if (auto *tl = pCore->window()->getCurrentTimeline()) {
+                tl->controller()->applyClipEffectsToTracksBelow();
+            }
+        });
+    }
     m_timelineClipMenu->addAction(coll->action(QStringLiteral("extract_clip")));
     m_timelineClipMenu->addAction(coll->action(QStringLiteral("replace_timeline_clip")));
     m_timelineClipMenu->addAction(coll->action(QStringLiteral("save_to_bin")));

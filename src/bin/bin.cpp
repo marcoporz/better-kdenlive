@@ -4066,6 +4066,16 @@ void Bin::setupMenu()
 
     setupAddClipAction(addClipMenu, ClipType::Color, QStringLiteral("add_color_clip"), i18n("Add Color Clip…"),
                        QIcon::fromTheme(QStringLiteral("kdenlive-add-color-clip")));
+    {
+        QAction *adjAction = addBinAction(QStringLiteral("add_adjustment_layer"), i18n("Add Adjustment Layer"),
+                                          QIcon::fromTheme(QStringLiteral("adjustlevels")), QStringLiteral("addclip"));
+        addClipMenu->addAction(adjAction);
+        connect(adjAction, &QAction::triggered, this, [this]() {
+            const int duration = pCore->getDurationFromString(KdenliveSettings::color_duration());
+            ClipCreator::createColorClip(QStringLiteral("0x00000000"), duration, i18n("Adjustment Layer"), getCurrentFolder(), m_itemModel,
+                                         m_readyCallBack);
+        });
+    }
     setupAddClipAction(addClipMenu, ClipType::SlideShow, QStringLiteral("add_slide_clip"), i18n("Add Image Sequence…"),
                        QIcon::fromTheme(QStringLiteral("kdenlive-add-slide-clip")));
     setupAddClipAction(addClipMenu, ClipType::Text, QStringLiteral("add_text_clip"), i18n("Add Title Clip…"),

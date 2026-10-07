@@ -1,3 +1,4 @@
+#include <QUuid>
 /*
     SPDX-FileCopyrightText: 2017 Nicolas Carion
     SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
@@ -2761,7 +2762,10 @@ bool TimelineModel::requestClipDeletion(int clipId, Fun &undo, Fun &redo, bool l
 {
     int trackId = getClipTrackId(clipId);
     if (!m_closing) {
-        removeAdjustmentEffectsFromTracks(this, QStringLiteral("%1:%2").arg(QCoreApplication::applicationPid()).arg(clipId), undo, redo);
+        const QString adjTag = adjustmentLayerTag(clipId, false);
+        if (!adjTag.isEmpty()) {
+            removeAdjustmentEffectsFromTracks(this, adjTag, undo, redo);
+        }
     }
     if (trackId != -1) {
         bool res = true;
@@ -8528,4 +8532,43 @@ std::unordered_set<int> TimelineModel::getAllSubIds()
         return m_subtitleModel->getAllSubIds();
     }
     return {};
+}
+
+QString TimelineModel::adjustmentLayerTag(int clipId, bool create)
+{
+    auto it = m_allClips.find(clipId);
+    if (it == m_allClips.end() || !it->second) {
+        return QString();
+    }
+    auto producer = it->second->m_producer;
+    if (!producer) {
+        return QString();
+    }
+    QString found;
+    const char *existing = producer->get("kdenlive:adjustment_uuid");
+    if (existing && existing[0] != '\0') {
+        found = QString::fromUtf8(existing);
+    } else if (producer->parent().is_valid()) {
+        const char *fromParent = producer->parent().get("kdenlive:adjustment_uuid");
+        if (fromParent && fromParent[0] != '\0') {
+            found = QString::fromUtf8(fromParent);
+        }
+    }
+    if (!found.isEmpty()) {
+        // keep producer and parent in sync so the id survives cuts and moves
+        producer->set("kdenlive:adjustment_uuid", found.toUtf8().constData());
+        if (producer->parent().is_valid()) {
+            producer->parent().set("kdenlive:adjustment_uuid", found.toUtf8().constData());
+        }
+        return found;
+    }
+    if (!create) {
+        return QString();
+    }
+    const QString uuid = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    producer->set("kdenlive:adjustment_uuid", uuid.toUtf8().constData());
+    if (producer->parent().is_valid()) {
+        producer->parent().set("kdenlive:adjustment_uuid", uuid.toUtf8().constData());
+    }
+    return uuid;
 }
