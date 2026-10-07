@@ -319,7 +319,7 @@ int main(int argc, char *argv[])
     aboutData.addComponent(i18n("FFmpeg"), i18n("A complete, cross-platform solution to record, convert and stream audio and video."), QString(),
                            QStringLiteral("https://ffmpeg.org"));
 
-    aboutData.setDesktopFileName(QStringLiteral("org.kde.kdenlive"));
+    aboutData.setDesktopFileName(QStringLiteral("better-kdenlive"));
 
     // Set application data
     KAboutData::setApplicationData(aboutData);
