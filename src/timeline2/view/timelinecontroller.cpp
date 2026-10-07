@@ -4,6 +4,8 @@
 */
 
 #include "timelinecontroller.h"
+#include "effects/effectstack/model/effectstackmodel.hpp"
+#include "effects/effectstack/model/effectitemmodel.hpp"
 #include "assets/keyframes/model/keyframemodellist.hpp"
 #include "audiomixer/mixermanager.hpp"
 #include "bin/bin.h"
@@ -6439,4 +6441,91 @@ bool TimelineController::createRangeMarkerFromZone(const QString &comment, int t
     }
 
     return success;
+}
+
+#include <QCoreApplication>
+namespace {
+void removeAdjustmentEffectsFromTracks(TimelineModel *model, const QString &ownerTag, Fun &undo, Fun &redo)
+{
+    for (int pos = 0; pos < model->getTracksCount(); ++pos) {
+        const int tid = model->getTrackIndexFromPosition(pos);
+        auto stack = model->getTrackEffectStackModel(tid);
+        if (!stack) {
+            continue;
+        }
+        std::vector<std::shared_ptr<EffectItemModel>> toRemove;
+        for (int row = 0; row < stack->rowCount(); ++row) {
+            auto item = stack->getEffectStackRow(row);
+            if (!item || item->childCount() > 0) {
+                continue;
+            }
+            auto eff = std::static_pointer_cast<EffectItemModel>(item);
+            const char *tag = eff->filter().get("kdenlive:adjustment_owner");
+            if (tag && ownerTag == QLatin1String(tag)) {
+                toRemove.push_back(eff);
+            }
+        }
+        for (auto &eff : toRemove) {
+            QString name = eff->getAssetId();
+            stack->removeEffectWithUndo(eff, name, undo, redo);
+        }
+    }
+}
+} // namespace
+
+void TimelineController::applyClipEffectsToTracksBelow()
+{
+    const auto selection = m_model->getCurrentSelection();
+    if (selection.size() != 1 || !m_model->isClip(*selection.begin())) {
+        pCore->displayMessage(i18n("Select exactly one clip"), ErrorMessage);
+        return;
+    }
+    const int clipId = *selection.begin();
+    auto source = m_model->getClipEffectStackModel(clipId);
+    if (!source || source->rowCount() == 0) {
+        pCore->displayMessage(i18n("The selected clip has no effects"), ErrorMessage);
+        return;
+    }
+    const int trackId = m_model->getClipTrackId(clipId);
+    const int start = m_model->getClipPosition(clipId);
+    const int end = start + m_model->getClipPlaytime(clipId) - 1;
+    const int trackPos = m_model->getTrackPosition(trackId);
+    const QString ownerTag = QStringLiteral("%1:%2").arg(QCoreApplication::applicationPid()).arg(clipId);
+    Fun undo = []() { return true; };
+    Fun redo = []() { return true; };
+    // Replace any previous application of this clip
+    removeAdjustmentEffectsFromTracks(&*m_model, ownerTag, undo, redo);
+    int copied = 0;
+    for (int pos = 0; pos < trackPos; ++pos) {
+        const int belowId = m_model->getTrackIndexFromPosition(pos);
+        if (m_model->isAudioTrack(belowId)) {
+            continue;
+        }
+        auto target = m_model->getTrackEffectStackModel(belowId);
+        if (!target) {
+            continue;
+        }
+        for (int row = 0; row < source->rowCount(); ++row) {
+            auto item = source->getEffectStackRow(row);
+            if (!item) {
+                continue;
+            }
+            const int before = target->rowCount();
+            if (!target->copyEffectWithUndo(item, PlaylistState::VideoOnly, undo, redo) || target->rowCount() <= before) {
+                continue;
+            }
+            auto added = std::static_pointer_cast<EffectItemModel>(target->getEffectStackRow(target->rowCount() - 1));
+            if (added) {
+                added->setInOut(QString(), {start, end}, true, false);
+                added->filter().set("kdenlive:adjustment_owner", ownerTag.toUtf8().constData());
+                copied++;
+            }
+        }
+    }
+    if (copied > 0) {
+        pCore->pushUndo(undo, redo, i18n("Apply adjustment layer effects"));
+    } else {
+        undo();
+    }
+    pCore->displayMessage(i18n("Copied %1 effect(s) to the tracks below", copied), copied > 0 ? OperationCompletedMessage : ErrorMessage);
 }

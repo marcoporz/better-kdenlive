@@ -2725,9 +2725,44 @@ std::pair<int, int> TimelineModel::extractSelectionFromGroup(int selection, Fun 
     return grpPair;
 }
 
+
+#include <QCoreApplication>
+#include "effects/effectstack/model/effectitemmodel.hpp"
+#include "effects/effectstack/model/effectstackmodel.hpp"
+
+static void removeAdjustmentEffectsFromTracks(TimelineModel *model, const QString &ownerTag, Fun &undo, Fun &redo)
+{
+    for (int pos = 0; pos < model->getTracksCount(); ++pos) {
+        const int tid = model->getTrackIndexFromPosition(pos);
+        auto stack = model->getTrackEffectStackModel(tid);
+        if (!stack) {
+            continue;
+        }
+        std::vector<std::shared_ptr<EffectItemModel>> toRemove;
+        for (int row = 0; row < stack->rowCount(); ++row) {
+            auto item = stack->getEffectStackRow(row);
+            if (!item || item->childCount() > 0) {
+                continue;
+            }
+            auto eff = std::static_pointer_cast<EffectItemModel>(item);
+            const char *tag = eff->filter().get("kdenlive:adjustment_owner");
+            if (tag && ownerTag == QLatin1String(tag)) {
+                toRemove.push_back(eff);
+            }
+        }
+        for (auto &eff : toRemove) {
+            QString name = eff->getAssetId();
+            stack->removeEffectWithUndo(eff, name, undo, redo);
+        }
+    }
+}
+
 bool TimelineModel::requestClipDeletion(int clipId, Fun &undo, Fun &redo, bool logUndo)
 {
     int trackId = getClipTrackId(clipId);
+    if (!m_closing) {
+        removeAdjustmentEffectsFromTracks(this, QStringLiteral("%1:%2").arg(QCoreApplication::applicationPid()).arg(clipId), undo, redo);
+    }
     if (trackId != -1) {
         bool res = true;
         if (getTrackById_const(trackId)->hasStartMix(clipId)) {
