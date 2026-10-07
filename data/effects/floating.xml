@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<!DOCTYPE kpartgui>
+<effect tag="floating" id="floating">
+    <name>Floating</name>
+    <description>Gentle, automatic floating/drift motion (position + rotation). No keyframes needed: set amplitude and speed once and the clip hovers for its whole duration. Good for logos or PNGs placed on top of a video.</description>
+    <author>marcoporz</author>
+    <parameter type="constant" name="amp_x" max="500" min="0" default="15" decimals="0" suffix=" px" factor="1">
+        <name>Horizontal Amplitude</name>
+        <comment>Maximum horizontal drift, in pixels.</comment>
+    </parameter>
+    <parameter type="constant" name="amp_y" max="500" min="0" default="10" decimals="0" suffix=" px" factor="1">
+        <name>Vertical Amplitude</name>
+        <comment>Maximum vertical drift, in pixels.</comment>
+    </parameter>
+    <parameter type="constant" name="amp_rotation" max="45" min="0" default="1.5" decimals="1" suffix="°" factor="1">
+        <name>Rotation Amplitude</name>
+        <comment>Maximum rotation drift, in degrees.</comment>
+    </parameter>
+    <parameter type="constant" name="speed" max="5" min="0" default="0.2" decimals="2" factor="1">
+        <name>Speed</name>
+        <comment>Roughly how many oscillations per second. Lower = slower/dreamier, higher = jittery.</comment>
+    </parameter>
+    <parameter type="constant" name="seed" max="1000" min="0" default="0" decimals="0" factor="1">
+        <name>Seed</name>
+        <comment>Changes the motion pattern. Give overlapping floating clips a different seed so they don't drift in sync.</comment>
+    </parameter>
+    <parameter type="constant" name="pivot_x" max="1" min="0" default="0.5" decimals="2" factor="1">
+        <name>Rotation Pivot X</name>
+        <comment>0 = left edge of the frame, 0.5 = center, 1 = right edge.</comment>
+    </parameter>
+    <parameter type="constant" name="pivot_y" max="1" min="0" default="0.5" decimals="2" factor="1">
+        <name>Rotation Pivot Y</name>
+        <comment>0 = top edge of the frame, 0.5 = center, 1 = bottom edge.</comment>
+    </parameter>
+</effect>

@@ -87,6 +87,9 @@ vignette.xml
 volume.xml
 wave.xml
 
+floating.xml
+shutterblur.xml
+
 DESTINATION ${KDE_INSTALL_DATADIR}${DATA_INSTALL_PREFIX}/effects)
 
 add_subdirectory(update)
