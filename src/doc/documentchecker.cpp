@@ -687,7 +687,7 @@ const QString DocumentChecker::relocateResource(QString sourceResource)
     }
 
     if (!m_rootReplacement.first.isEmpty() && sourceResource.startsWith(m_rootReplacement.first)) {
-        sourceResource.replace(m_rootReplacement.first, m_rootReplacement.second);
+        sourceResource = QDir(m_rootReplacement.second).absoluteFilePath(QDir(m_rootReplacement.first).relativeFilePath(sourceResource));
         // Use QFileInfo to ensure we also handle directories (for slideshows)
         if (QFileInfo::exists(sourceResource)) {
             return sourceResource;
@@ -697,14 +697,18 @@ const QString DocumentChecker::relocateResource(QString sourceResource)
 
     if (!m_lastSavePath.isEmpty()) {
         if (sourceResource.startsWith(m_root)) {
-            sourceResource.replace(m_root, m_lastSavePath);
+            QDir previousDir(m_lastSavePath);
+            QDir currentDir(m_root);
+            sourceResource = previousDir.absoluteFilePath(currentDir.relativeFilePath(sourceResource));
             if (QFileInfo::exists(sourceResource)) {
                 return sourceResource;
             }
             return QString();
         }
         if (sourceResource.startsWith(m_lastSavePath)) {
-            sourceResource.replace(m_lastSavePath, m_root);
+            QDir previousDir(m_lastSavePath);
+            QDir currentDir(m_root);
+            sourceResource = currentDir.absoluteFilePath(previousDir.relativeFilePath(sourceResource));
             if (QFileInfo::exists(sourceResource)) {
                 return sourceResource;
             }

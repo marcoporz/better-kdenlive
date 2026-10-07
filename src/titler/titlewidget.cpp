@@ -2774,7 +2774,7 @@ void TitleWidget::showMissingItems()
                 if (baseFolder.exists(QFileInfo(missing).fileName())) {
                     QString updatedUrl = baseFolder.absoluteFilePath(QFileInfo(missing).fileName());
                     if (!startUrl.isEmpty() && updatedUrl.startsWith(startUrl)) {
-                        updatedUrl.remove(startUrl);
+                        updatedUrl = QDir(startUrl).relativeFilePath(updatedUrl);
                     }
                     m_remplacementPatterns.insert(missing, updatedUrl);
                 } else {
