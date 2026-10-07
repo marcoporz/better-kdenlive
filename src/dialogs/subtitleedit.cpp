@@ -24,6 +24,7 @@
 #include <QKeyEvent>
 #include <QMenu>
 #include <QToolButton>
+#include <QMenu>
 
 const static QRegularExpression tagBlockRegex("(?<!\\\\){[^}]*}");
 const static QRegularExpression escapeRegex("\\\\[{}]");
@@ -322,6 +323,7 @@ SubtitleEdit::SubtitleEdit(QWidget *parent)
                "Open a font dialog to select a font and set its properties for either the selected text or the text following the cursor position."));
 
     connect(buttonResetStyle, &QToolButton::clicked, this, &SubtitleEdit::slotResetStyle);
+    setupAnimationMenu();
     buttonResetStyle->setToolTip(i18n("Reset style"));
     buttonResetStyle->setWhatsThis(xi18nc("@info:whatsthis", "Resets the style of either the selected text or the text following the cursor position."));
 
@@ -1725,4 +1727,138 @@ void SubtitleEdit::updateOffset()
         int pos = match.capturedStart(0);
         m_offsets.push_back({pos, {2, 1}});
     }
+}
+
+namespace {
+struct CaptionPreset {
+    const char *id;
+    const char *label;
+    const char *tags;
+};
+
+const CaptionPreset kCaptionPresets[] = {
+    {"fade", "Fade in/out", "\\fad(250,250)"},
+    {"pop", "Pop-in", "\\alpha&HFF&\\fscx40\\fscy40\\t(0,150,\\alpha&H00&\\fscx112\\fscy112)\\t(150,260,\\fscx100\\fscy100)"},
+    {"bounce", "Bounce", "\\fscx70\\fscy70\\t(0,120,\\fscx118\\fscy118)\\t(120,220,\\fscx94\\fscy94)\\t(220,300,\\fscx100\\fscy100)"},
+};
+
+QString stripCaptionAnimation(const QString &text)
+{
+    static const QRegularExpression animBlock(QStringLiteral("^\\{kd-anim:[^}]*\\}"));
+    static const QRegularExpression karaokeBlock(QStringLiteral("\\{\\\\[kK][fo]?\\d+\\}"));
+    QString result = text;
+    result.remove(animBlock);
+    result.remove(karaokeBlock);
+    return result;
+}
+
+QString captionWithPreset(const QString &text, const QString &id)
+{
+    QString result = stripCaptionAnimation(text);
+    for (const auto &preset : kCaptionPresets) {
+        if (id == QLatin1String(preset.id)) {
+            return QStringLiteral("{kd-anim:%1%2}").arg(id, QString::fromLatin1(preset.tags)) + result;
+        }
+    }
+    return result;
+}
+
+QString captionKaraoke(const QString &text, double durationSecs)
+{
+    const QString clean = stripCaptionAnimation(text);
+    const QStringList words = clean.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+    if (words.isEmpty() || durationSecs <= 0) {
+        return clean;
+    }
+    int totalLen = 0;
+    for (const QString &w : words) {
+        totalLen += w.length();
+    }
+    const int totalCs = int(durationSecs * 100);
+    QStringList out;
+    for (const QString &w : words) {
+        int cs = qMax(1, int(double(totalCs) * w.length() / totalLen));
+        out << QStringLiteral("{\\k%1}%2").arg(cs).arg(w);
+    }
+    return QStringLiteral("{kd-anim:karaoke}") + out.join(QLatin1Char(' '));
+}
+} // namespace
+
+void SubtitleEdit::setupAnimationMenu()
+{
+    m_animationButton = new QToolButton(this);
+    m_animationButton->setIcon(QIcon::fromTheme(QStringLiteral("tools-wizard")));
+    m_animationButton->setToolTip(i18n("Caption animation"));
+    m_animationButton->setPopupMode(QToolButton::InstantPopup);
+    auto *menu = new QMenu(m_animationButton);
+    m_animationApplyAll = menu->addAction(i18n("Apply to all subtitles"));
+    m_animationApplyAll->setCheckable(true);
+    menu->addSeparator();
+    for (const auto &preset : kCaptionPresets) {
+        const QString id = QString::fromLatin1(preset.id);
+        menu->addAction(i18n(preset.label), this, [this, id]() { slotAnimationPreset(id); });
+    }
+    menu->addAction(i18n("Karaoke (word by word)"), this, [this]() { slotAnimationPreset(QStringLiteral("karaoke")); });
+    menu->addSeparator();
+    menu->addAction(i18n("Remove animation"), this, [this]() { slotAnimationPreset(QStringLiteral("none")); });
+    m_animationButton->setMenu(menu);
+    int idx = horizontalLayout_4->indexOf(buttonMoreTags);
+    if (idx >= 0) {
+        horizontalLayout_4->insertWidget(idx + 1, m_animationButton);
+    } else {
+        horizontalLayout_4->addWidget(m_animationButton);
+    }
+}
+
+void SubtitleEdit::slotAnimationPreset(const QString &id)
+{
+    if (m_animationApplyAll && m_animationApplyAll->isChecked()) {
+        slotApplyAnimationToAll(id);
+        return;
+    }
+    if (m_activeSub < 0) {
+        return;
+    }
+    const QString text = subText->toPlainText();
+    QString result;
+    if (id == QLatin1String("karaoke")) {
+        result = captionKaraoke(text, (m_endPos - m_startPos).seconds());
+    } else {
+        result = captionWithPreset(text, id);
+    }
+    subText->setPlainText(result);
+    if (m_isSimpleEdit) {
+        syncSimpleText();
+    }
+    applyFontSize();
+    updateSubtitle();
+    pCore->refreshProjectMonitorOnce();
+}
+
+void SubtitleEdit::slotApplyAnimationToAll(const QString &id)
+{
+    if (!m_model) {
+        return;
+    }
+    const auto all = m_model->getAllSubtitles();
+    for (const auto &sub : all) {
+        const int layer = sub.first.first;
+        const GenTime start = sub.first.second;
+        const int sid = m_model->getIdForStartPos(layer, start);
+        if (sid < 0) {
+            continue;
+        }
+        const QString text = m_model->getText(sid);
+        QString result;
+        if (id == QLatin1String("karaoke")) {
+            result = captionKaraoke(text, (sub.second.endTime() - start).seconds());
+        } else {
+            result = captionWithPreset(text, id);
+        }
+        m_model->setText(sid, result);
+    }
+    if (m_activeSub >= 0) {
+        setActiveSubtitle(m_activeSub);
+    }
+    pCore->refreshProjectMonitorOnce();
 }

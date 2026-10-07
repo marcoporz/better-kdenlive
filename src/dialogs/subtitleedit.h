@@ -56,6 +56,8 @@ private Q_SLOTS:
     void slotSelectFont();
     void slotResetStyle();
     void slotSetPosition();
+    void slotAnimationPreset(const QString &id);
+    void slotApplyAnimationToAll(const QString &id);
 
 private:
     std::shared_ptr<SubtitleModel> m_model;
@@ -73,6 +75,9 @@ private:
     void applyFontSize();
     void updateEffects();
     void updateOffset();
+    void setupAnimationMenu();
+    QToolButton *m_animationButton{nullptr};
+    QAction *m_animationApplyAll{nullptr};
 
 Q_SIGNALS:
     void addSubtitle(const QString &);
