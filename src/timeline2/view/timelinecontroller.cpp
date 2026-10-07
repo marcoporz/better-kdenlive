@@ -6511,10 +6511,16 @@ void TimelineController::applyClipEffectsToTracksBelow()
                 continue;
             }
             const int before = target->rowCount();
-            if (!target->copyEffectWithUndo(item, PlaylistState::VideoOnly, undo, redo) || target->rowCount() <= before) {
+            if (!target->copyEffectWithUndo(item, PlaylistState::VideoOnly, undo, redo)) {
                 continue;
             }
-            auto added = std::static_pointer_cast<EffectItemModel>(target->getEffectStackRow(target->rowCount() - 1));
+            std::shared_ptr<EffectItemModel> added;
+            if (target->rowCount() > before) {
+                added = std::static_pointer_cast<EffectItemModel>(target->getEffectStackRow(target->rowCount() - 1));
+            } else {
+                // built-in effects are updated in place instead of appended
+                added = target->getBuiltInEffect(std::static_pointer_cast<EffectItemModel>(item)->getAssetId());
+            }
             if (added) {
                 added->setInOut(QString(), {start, end}, true, false);
                 added->filter().set("kdenlive:adjustment_owner", ownerTag.toUtf8().constData());
