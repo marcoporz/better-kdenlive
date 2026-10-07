@@ -232,13 +232,10 @@ ln -s ~/.local/share/fonts ~/better-kdenlive/data/fonts
 
 ## Other distributions
 
-Only Fedora 44 has been tested. The steps are the same everywhere: install Kdenlive's
-build dependencies, build with CMake, install into a prefix under your home directory, then
-build the two plugins. On Debian-based systems `sudo apt build-dep kdenlive` (with source
-repositories enabled) pulls the dependencies, but Kdenlive 26.08 may need newer Qt 6,
-KDE Frameworks 6 or MLT than your release provides. The plugin repositories list package names for
-openSUSE, Debian/Ubuntu and Arch. The Flatpak and AppImage builds of Kdenlive bundle their
-own MLT and cannot use these plugins. Windows and macOS are not supported.
+Only Fedora 44 has been tested. A step-by-step guide for **openSUSE (Slowroll and Tumbleweed)**,
+**Debian and Ubuntu**, **Arch** and others is in
+[docs/INSTALL-OTHER-DISTROS.md](../docs/INSTALL-OTHER-DISTROS.md). It is untested: it documents the
+method, and reports from people who try it are welcome.
 
 ## Troubleshooting
 
