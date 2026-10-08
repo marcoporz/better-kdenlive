@@ -16,8 +16,9 @@ short-form video, and two motion effects, **Floating** and **Transform + Motion 
 4. [Other distributions](#other-distributions)
 5. [Troubleshooting](#troubleshooting)
 6. [Known limitations and testing status](#known-limitations-and-testing-status)
-7. [Updating and uninstalling](#updating-and-uninstalling)
-8. [License and credits](#license-and-credits)
+7. [Roadmap](#roadmap-using-the-features-with-official-kdenlive)
+8. [Updating and uninstalling](#updating-and-uninstalling)
+9. [License and credits](#license-and-credits)
 
 ## What is added
 
@@ -261,6 +262,28 @@ effects.
 **Not tested:** rendering animated captions to a final video file, opening a project that
 uses the adjustment layer in the normal Kdenlive, other distributions, and very long or
 high-resolution projects. Check your renders before relying on them.
+
+## Roadmap: using the features with official Kdenlive
+
+These are ideas, not promises. The goal is to make the features usable **without replacing your
+official Kdenlive**, and without breaking it. This fork never touches an existing install: it has its
+own folder and its own settings.
+
+- **Floating and Transform + Motion Blur: already possible.** They are MLT plugins plus an effect
+  definition, so they work with the official Kdenlive as long as it uses the system MLT (not the Flatpak
+  or AppImage builds). Install the two plugin repositories linked above; this fork is not needed for them.
+- **Caption animations: planned as a separate tool.** They are a user-interface change inside Kdenlive's
+  subtitle editor, which cannot be added to the official program as a plugin. The plan is a small standalone
+  tool that applies the same animations to an `.ass` subtitle file exported from Kdenlive, which you then import
+  back. Status: not started. It should work because the rendering is done by Kdenlive's own subtitle code,
+  but this has not been verified on the official build.
+- **Adjustment layer: needs changes inside Kdenlive.** It touches the timeline model, so it cannot be a
+  separate tool in a clean way. Rewriting project files from outside would depend on the project format and
+  is not planned.
+- **Proposing the changes upstream.** The proper way to get these features into the official Kdenlive is to
+  propose them to the Kdenlive developers on [invent.kde.org](https://invent.kde.org/multimedia/kdenlive),
+  one feature at a time, rebased on their current development branch, following their coding rules.
+  Acceptance is not guaranteed. Until then, this fork stays available as it is.
 
 ## Updating and uninstalling
 
