@@ -255,11 +255,11 @@ method, and reports from people who try it are welcome.
 
 ## Known limitations and testing status
 
-Tested by me on Fedora 44: the caption menu and "Apply to all" in the project monitor,
+Tested by me on Fedora 44: the caption menu and "Apply to all" in the project monitor and in an exported video,
 the adjustment layer (apply, move and re-apply, delete, undo/redo, save and reopen), and both
 effects.
 
-**Not tested:** rendering animated captions to a final video file, opening a project that
+**Not tested:** opening a project that
 uses the adjustment layer in the normal Kdenlive, other distributions, and very long or
 high-resolution projects. Check your renders before relying on them.
 
