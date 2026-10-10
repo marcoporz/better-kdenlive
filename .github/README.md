@@ -154,7 +154,7 @@ Get the code. This is a fork of Kdenlive, so the download includes its history (
 
 ~~~
 mkdir -p ~/better-kdenlive && cd ~/better-kdenlive
-git clone --branch better-kdenlive --single-branch https://github.com/marcoporz/better-kdenlive.git src
+git clone --branch better-kdenlive --single-branch https://github.com/marcoporz/adjustment-layer-and-captions-animations-for-kdenlive.git src
 cd src
 ~~~
 
